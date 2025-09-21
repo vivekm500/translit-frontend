@@ -137,7 +137,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center min-h-screen p-6 bg-gradient-to-r from-blue-200 to-purple-300">
       <h1 className="text-3xl font-bold text-white mb-6 text-center">
-        Bharatiya Transliteration Demo
+        Scriptify Transliteration Demo
       </h1>
 
       {/* Text input */}
