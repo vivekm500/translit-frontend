@@ -1,33 +1,42 @@
 import { useState, useRef, useCallback } from "react";
-import Cropper, { Area } from "react-easy-crop";
+import Cropper from "react-easy-crop";
 import Webcam from "react-webcam";
-
-interface TransliterationResult {
-  input: string;
-  detected_script: string;
-  transliterated_user: string;
-  transliterated_english: string;
-}
 
 export default function Home() {
   const [textInput, setTextInput] = useState<string>("");
   const [target, setTarget] = useState<string>("telugu");
-  const [result, setResult] = useState<TransliterationResult | null>(null);
+  const [result, setResult] = useState<{
+    input: string;
+    detected_script: string;
+    transliterated_user: string;
+    transliterated_english: string;
+  } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState<number>(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const webcamRef = useRef<Webcam | null>(null);
   const [cameraOpen, setCameraOpen] = useState<boolean>(false);
-  const [useRearCamera, setUseRearCamera] = useState<boolean>(true);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
 
-  const onCropComplete = useCallback((_c: Area, croppedAreaPx: Area) => {
-    setCroppedAreaPixels(croppedAreaPx);
-  }, []);
+  const BACKEND_URL =
+    process.env.NEXT_PUBLIC_BACKEND_URL || "https://translit-backend.onrender.com";
+
+  const onCropComplete = useCallback(
+    (_c: any, croppedAreaPx: { x: number; y: number; width: number; height: number }) => {
+      setCroppedAreaPixels(croppedAreaPx);
+    },
+    []
+  );
 
   // Upload file
   const handleFile = (file: File | undefined) => {
@@ -50,15 +59,12 @@ export default function Home() {
     if (!textInput.trim()) return alert("Enter text first");
     setLoading(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/transliterate-text`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: textInput, target }),
-        }
-      );
-      const data: TransliterationResult = await res.json();
+      const res = await fetch(`${BACKEND_URL}/transliterate-text`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: textInput, target }),
+      });
+      const data = await res.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -75,35 +81,21 @@ export default function Home() {
       const resp = await fetch(imageUrl);
       const blob = await resp.blob();
 
-      let x: number | null = null,
-        y: number | null = null,
-        width: number | null = null,
-        height: number | null = null;
-      if (croppedAreaPixels) {
-        x = Math.round(croppedAreaPixels.x);
-        y = Math.round(croppedAreaPixels.y);
-        width = Math.round(croppedAreaPixels.width);
-        height = Math.round(croppedAreaPixels.height);
-      }
-
       const fd = new FormData();
       fd.append("image", blob, "upload.png");
       fd.append("target", target);
-      if (x !== null) {
-        fd.append("x", String(x));
-        fd.append("y", String(y));
-        fd.append("width", String(width));
-        fd.append("height", String(height));
+      if (croppedAreaPixels) {
+        fd.append("x", String(Math.round(croppedAreaPixels.x)));
+        fd.append("y", String(Math.round(croppedAreaPixels.y)));
+        fd.append("width", String(Math.round(croppedAreaPixels.width)));
+        fd.append("height", String(Math.round(croppedAreaPixels.height)));
       }
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/process-image`,
-        {
-          method: "POST",
-          body: fd,
-        }
-      );
-      const data: TransliterationResult = await res.json();
+      const res = await fetch(`${BACKEND_URL}/process-image`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -115,14 +107,11 @@ export default function Home() {
   const handleSpeak = async () => {
     if (!result) return;
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/speak`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: result.transliterated_user, target }),
-        }
-      );
+      const res = await fetch(`${BACKEND_URL}/speak`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: result.transliterated_user, target }),
+      });
       if (!res.ok) return alert("TTS error");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -145,41 +134,41 @@ export default function Home() {
         value={textInput}
         onChange={(e) => setTextInput(e.target.value)}
         placeholder="✍️ Type or paste text here (any Indian script)"
-        className="w-full max-w-2xl p-3 rounded border shadow mb-4 bg-white text-gray-900"
+        className="w-full max-w-2xl p-3 rounded border shadow mb-4 bg-white"
         rows={3}
       />
-
-      {/* Target script choice box */}
-      <div className="border rounded p-2 bg-white shadow mb-4 w-full max-w-2xl">
-        <label className="font-semibold mr-2">Target Script:</label>
-        <select
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          className="p-2 border rounded w-full bg-gray-100 text-gray-900"
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <button
+          onClick={handleTransliterateText}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
         >
-          <option value="hindi">Hindi</option>
-          <option value="english">English</option>
-          <option value="telugu">Telugu</option>
-          <option value="tamil">Tamil</option>
-          <option value="kannada">Kannada</option>
-          <option value="malayalam">Malayalam</option>
-          <option value="gujarati">Gujarati</option>
-          <option value="bengali">Bengali</option>
-          <option value="oriya">Oriya</option>
-          <option value="gurmukhi">Punjabi</option>
-          <option value="iast">IAST</option>
-        </select>
+          Transliterate Text
+        </button>
+
+        <div className="border rounded p-2 bg-gray-100">
+          <label className="font-semibold mr-2">Target Script:</label>
+          <select
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            className="p-1 border rounded bg-white"
+          >
+            <option value="hindi">Hindi</option>
+            <option value="english">English</option>
+            <option value="telugu">Telugu</option>
+            <option value="tamil">Tamil</option>
+            <option value="kannada">Kannada</option>
+            <option value="malayalam">Malayalam</option>
+            <option value="gujarati">Gujarati</option>
+            <option value="bengali">Bengali</option>
+            <option value="oriya">Oriya</option>
+            <option value="gurmukhi">Punjabi</option>
+            <option value="iast">IAST</option>
+          </select>
+        </div>
       </div>
 
-      <button
-        onClick={handleTransliterateText}
-        className="px-4 py-2 bg-blue-600 text-white rounded shadow"
-      >
-        Transliterate Text
-      </button>
-
       {/* Upload */}
-      <div className="mb-4 mt-4">
+      <div className="mb-4">
         <input
           type="file"
           accept="image/*"
@@ -188,7 +177,7 @@ export default function Home() {
           className="hidden"
         />
         <button
-          className="px-4 py-2 bg-purple-600 text-white rounded shadow"
+          className="px-4 py-2 bg-purple-600 text-white rounded"
           onClick={() => inputRef.current?.click()}
         >
           📁 Upload Image
@@ -199,7 +188,7 @@ export default function Home() {
       <div className="mb-4">
         {!cameraOpen ? (
           <button
-            className="px-4 py-2 bg-indigo-600 text-white rounded shadow"
+            className="px-4 py-2 bg-indigo-600 text-white rounded"
             onClick={() => setCameraOpen(true)}
           >
             📷 Open Camera
@@ -211,9 +200,7 @@ export default function Home() {
               ref={webcamRef}
               screenshotFormat="image/jpeg"
               width={320}
-              videoConstraints={{
-                facingMode: useRearCamera ? { exact: "environment" } : "user",
-              }}
+              videoConstraints={{ facingMode }}
             />
             <div className="flex gap-2 mt-2">
               <button
@@ -224,7 +211,9 @@ export default function Home() {
               </button>
               <button
                 className="px-4 py-2 bg-yellow-600 text-white rounded"
-                onClick={() => setUseRearCamera((prev) => !prev)}
+                onClick={() =>
+                  setFacingMode(facingMode === "user" ? "environment" : "user")
+                }
               >
                 Switch Camera
               </button>
@@ -255,13 +244,13 @@ export default function Home() {
           </div>
           <div className="flex gap-3 mt-3">
             <button
-              className="px-4 py-2 bg-pink-600 text-white rounded shadow"
+              className="px-4 py-2 bg-pink-600 text-white rounded"
               onClick={handleProcessImage}
             >
               {loading ? "Processing..." : "Process Cropped Region"}
             </button>
             <button
-              className="px-4 py-2 bg-gray-500 text-white rounded shadow"
+              className="px-4 py-2 bg-gray-500 text-white rounded"
               onClick={() => setImageUrl(null)}
             >
               Clear Image
@@ -288,7 +277,7 @@ export default function Home() {
             <strong>English (IAST):</strong> {result.transliterated_english}
           </p>
           <button
-            className="mt-3 px-4 py-2 bg-green-600 text-white rounded shadow"
+            className="mt-3 px-4 py-2 bg-green-600 text-white rounded"
             onClick={handleSpeak}
           >
             🔊 Speak
