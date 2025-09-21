@@ -156,26 +156,27 @@ export default function Home() {
           Transliterate Text
         </button>
 
-       <div className="border rounded p-2 bg-gray-200 shadow">
-  <label className="font-semibold mr-2 text-black">Target Script:</label>
-  <select
-    value={target}
-    onChange={(e) => setTarget(e.target.value)}
-    className="p-2 border rounded bg-white text-black font-semibold shadow-sm"
-  >
-    <option value="hindi">Hindi</option>
-    <option value="english">English</option>
-    <option value="telugu">Telugu</option>
-    <option value="tamil">Tamil</option>
-    <option value="kannada">Kannada</option>
-    <option value="malayalam">Malayalam</option>
-    <option value="gujarati">Gujarati</option>
-    <option value="bengali">Bengali</option>
-    <option value="oriya">Oriya</option>
-    <option value="gurmukhi">Punjabi</option>
-    <option value="iast">IAST</option>
-  </select>
-</div>
+       <div className="border rounded p-2 bg-white shadow mb-4 w-full max-w-2xl">
+        <label className="font-semibold mr-2">Target Script:</label>
+        <select
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          className="p-2 border rounded w-full bg-gray-100 text-gray-900"
+        >
+          <option value="hindi">Hindi</option>
+          <option value="english">English</option>
+          <option value="telugu">Telugu</option>
+          <option value="tamil">Tamil</option>
+          <option value="kannada">Kannada</option>
+          <option value="malayalam">Malayalam</option>
+          <option value="gujarati">Gujarati</option>
+          <option value="bengali">Bengali</option>
+          <option value="oriya">Oriya</option>
+          <option value="gurmukhi">Punjabi</option>
+          <option value="iast">IAST</option>
+        </select>
+      </div>
+
 
 
 
