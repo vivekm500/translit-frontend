@@ -2,26 +2,42 @@ import { useState, useRef, useCallback } from "react";
 import Cropper from "react-easy-crop";
 import Webcam from "react-webcam";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+interface TransliterationResult {
+  input: string;
+  detected_script: string;
+  transliterated_user: string;
+  transliterated_english: string;
+}
+
+interface CroppedAreaPixels {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export default function Home() {
-  const [textInput, setTextInput] = useState("");
-  const [target, setTarget] = useState("telugu");
-  const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [textInput, setTextInput] = useState<string>("");
+  const [target, setTarget] = useState<string>("telugu");
+  const [result, setResult] = useState<TransliterationResult | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState<number>(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] =
+    useState<CroppedAreaPixels | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const webcamRef = useRef<Webcam | null>(null);
-  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState<boolean>(false);
 
-  const onCropComplete = useCallback((_c: any, croppedAreaPx: any) => {
-    setCroppedAreaPixels(croppedAreaPx);
-  }, []);
+  const onCropComplete = useCallback(
+    (_: unknown, croppedAreaPx: CroppedAreaPixels) => {
+      setCroppedAreaPixels(croppedAreaPx);
+    },
+    []
+  );
 
   // Upload file
   const handleFile = (file: File | undefined) => {
@@ -44,12 +60,15 @@ export default function Home() {
     if (!textInput.trim()) return alert("Enter text first");
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/transliterate-text`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: textInput, target }),
-      });
-      const data = await res.json();
+      const res = await fetch(
+        "https://translit-backend.onrender.com/transliterate-text",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: textInput, target }),
+        }
+      );
+      const data: TransliterationResult = await res.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -66,10 +85,10 @@ export default function Home() {
       const resp = await fetch(imageUrl);
       const blob = await resp.blob();
 
-      let x = null,
-        y = null,
-        width = null,
-        height = null;
+      let x: number | null = null,
+        y: number | null = null,
+        width: number | null = null,
+        height: number | null = null;
       if (croppedAreaPixels) {
         x = Math.round(croppedAreaPixels.x);
         y = Math.round(croppedAreaPixels.y);
@@ -87,11 +106,14 @@ export default function Home() {
         fd.append("height", String(height));
       }
 
-      const res = await fetch(`${API_URL}/process-image`, {
-        method: "POST",
-        body: fd,
-      });
-      const data = await res.json();
+      const res = await fetch(
+        "https://translit-backend.onrender.com/process-image",
+        {
+          method: "POST",
+          body: fd,
+        }
+      );
+      const data: TransliterationResult = await res.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -103,11 +125,17 @@ export default function Home() {
   const handleSpeak = async () => {
     if (!result) return;
     try {
-      const res = await fetch(`${API_URL}/speak`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: result.transliterated_user, target }),
-      });
+      const res = await fetch(
+        "https://translit-backend.onrender.com/speak",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: result.transliterated_user,
+            target,
+          }),
+        }
+      );
       if (!res.ok) return alert("TTS error");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
