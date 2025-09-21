@@ -156,27 +156,27 @@ export default function Home() {
           Transliterate Text
         </button>
 
-        <div className="border rounded p-2 bg-gray-100">
-          <label className="font-semibold mr-2">Target Script:</label>
-          <select
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            className="p-1 border rounded bg-white"
-          >
-            <option value="hindi">Hindi</option>
-            <option value="english">English</option>
-            <option value="telugu">Telugu</option>
-            <option value="tamil">Tamil</option>
-            <option value="kannada">Kannada</option>
-            <option value="malayalam">Malayalam</option>
-            <option value="gujarati">Gujarati</option>
-            <option value="bengali">Bengali</option>
-            <option value="oriya">Oriya</option>
-            <option value="gurmukhi">Punjabi</option>
-            <option value="iast">IAST</option>
-          </select>
-        </div>
-      </div>
+        <div className="border rounded p-2 bg-gray-200 shadow">
+  <label className="font-semibold mr-2 text-black">Target Script:</label>
+  <select
+    value={target}
+    onChange={(e) => setTarget(e.target.value)}
+    className="p-2 border rounded bg-white text-black font-semibold shadow-sm"
+  >
+    <option value="hindi" className="font-semibold">Hindi</option>
+    <option value="english" className="font-semibold">English</option>
+    <option value="telugu" className="font-semibold">Telugu</option>
+    <option value="tamil" className="font-semibold">Tamil</option>
+    <option value="kannada" className="font-semibold">Kannada</option>
+    <option value="malayalam" className="font-semibold">Malayalam</option>
+    <option value="gujarati" className="font-semibold">Gujarati</option>
+    <option value="bengali" className="font-semibold">Bengali</option>
+    <option value="oriya" className="font-semibold">Oriya</option>
+    <option value="gurmukhi" className="font-semibold">Punjabi</option>
+    <option value="iast" className="font-semibold">IAST</option>
+  </select>
+</div>
+
 
       {/* Upload */}
       <div className="mb-4">
