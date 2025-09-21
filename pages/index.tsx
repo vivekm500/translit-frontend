@@ -1,42 +1,33 @@
 import { useState, useRef, useCallback } from "react";
-import Cropper from "react-easy-crop";
+import Cropper, { Area } from "react-easy-crop";
 import Webcam from "react-webcam";
+
+interface ResultData {
+  input: string;
+  detected_script: string;
+  transliterated_user: string;
+  transliterated_english: string;
+}
 
 export default function Home() {
   const [textInput, setTextInput] = useState<string>("");
   const [target, setTarget] = useState<string>("telugu");
-  const [result, setResult] = useState<{
-    input: string;
-    detected_script: string;
-    transliterated_user: string;
-    transliterated_english: string;
-  } | null>(null);
+  const [result, setResult] = useState<ResultData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState<number>(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const webcamRef = useRef<Webcam | null>(null);
   const [cameraOpen, setCameraOpen] = useState<boolean>(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
 
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "https://translit-backend.onrender.com";
-
-  const onCropComplete = useCallback(
-    (_c: any, croppedAreaPx: { x: number; y: number; width: number; height: number }) => {
-      setCroppedAreaPixels(croppedAreaPx);
-    },
-    []
-  );
+  const onCropComplete = useCallback((_c: Area, croppedAreaPx: Area) => {
+    setCroppedAreaPixels(croppedAreaPx);
+  }, []);
 
   // Upload file
   const handleFile = (file: File | undefined) => {
@@ -59,12 +50,12 @@ export default function Home() {
     if (!textInput.trim()) return alert("Enter text first");
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/transliterate-text`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/transliterate-text`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: textInput, target }),
       });
-      const data = await res.json();
+      const data: ResultData = await res.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -81,21 +72,32 @@ export default function Home() {
       const resp = await fetch(imageUrl);
       const blob = await resp.blob();
 
+      let x: number | null = null,
+        y: number | null = null,
+        width: number | null = null,
+        height: number | null = null;
+      if (croppedAreaPixels) {
+        x = Math.round(croppedAreaPixels.x);
+        y = Math.round(croppedAreaPixels.y);
+        width = Math.round(croppedAreaPixels.width);
+        height = Math.round(croppedAreaPixels.height);
+      }
+
       const fd = new FormData();
       fd.append("image", blob, "upload.png");
       fd.append("target", target);
-      if (croppedAreaPixels) {
-        fd.append("x", String(Math.round(croppedAreaPixels.x)));
-        fd.append("y", String(Math.round(croppedAreaPixels.y)));
-        fd.append("width", String(Math.round(croppedAreaPixels.width)));
-        fd.append("height", String(Math.round(croppedAreaPixels.height)));
+      if (x !== null && y !== null && width !== null && height !== null) {
+        fd.append("x", String(x));
+        fd.append("y", String(y));
+        fd.append("width", String(width));
+        fd.append("height", String(height));
       }
 
-      const res = await fetch(`${BACKEND_URL}/process-image`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process-image`, {
         method: "POST",
         body: fd,
       });
-      const data = await res.json();
+      const data: ResultData = await res.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -104,10 +106,11 @@ export default function Home() {
     setLoading(false);
   };
 
+  // Speak result
   const handleSpeak = async () => {
     if (!result) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/speak`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/speak`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: result.transliterated_user, target }),
@@ -134,9 +137,10 @@ export default function Home() {
         value={textInput}
         onChange={(e) => setTextInput(e.target.value)}
         placeholder="✍️ Type or paste text here (any Indian script)"
-        className="w-full max-w-2xl p-3 rounded border shadow mb-4 bg-white"
+        className="w-full max-w-2xl p-3 rounded border shadow mb-4 bg-white text-black"
         rows={3}
       />
+
       <div className="flex gap-3 mb-4 flex-wrap">
         <button
           onClick={handleTransliterateText}
@@ -145,12 +149,12 @@ export default function Home() {
           Transliterate Text
         </button>
 
-        <div className="border rounded p-2 bg-gray-100">
+        <div className="border rounded p-2 bg-gray-200">
           <label className="font-semibold mr-2">Target Script:</label>
           <select
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            className="p-1 border rounded bg-white"
+            className="p-1 border rounded bg-white text-black"
           >
             <option value="hindi">Hindi</option>
             <option value="english">English</option>
@@ -210,18 +214,20 @@ export default function Home() {
                 Capture Photo
               </button>
               <button
-                className="px-4 py-2 bg-yellow-600 text-white rounded"
-                onClick={() =>
-                  setFacingMode(facingMode === "user" ? "environment" : "user")
-                }
-              >
-                Switch Camera
-              </button>
-              <button
                 className="px-4 py-2 bg-red-600 text-white rounded"
                 onClick={() => setCameraOpen(false)}
               >
                 Close Camera
+              </button>
+              <button
+                className="px-4 py-2 bg-yellow-600 text-white rounded"
+                onClick={() =>
+                  setFacingMode((prev) =>
+                    prev === "user" ? "environment" : "user"
+                  )
+                }
+              >
+                🔄 Switch Camera
               </button>
             </div>
           </div>
@@ -261,7 +267,7 @@ export default function Home() {
 
       {/* Results */}
       {result && (
-        <div className="mt-6 bg-white p-4 rounded shadow w-full max-w-2xl">
+        <div className="mt-6 bg-white p-4 rounded shadow w-full max-w-2xl text-black">
           <h2 className="font-bold mb-2">Result</h2>
           <p>
             <strong>Detected script:</strong> {result.detected_script}
