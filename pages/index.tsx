@@ -2,41 +2,43 @@ import { useState, useRef, useCallback } from "react";
 import Cropper, { Area } from "react-easy-crop";
 import Webcam from "react-webcam";
 
-interface ResultData {
+interface TransliterationResult {
   input: string;
   detected_script: string;
   transliterated_user: string;
   transliterated_english: string;
 }
 
+type CropArea = Area | null;
+
 export default function Home() {
   const [textInput, setTextInput] = useState<string>("");
   const [target, setTarget] = useState<string>("telugu");
-  const [result, setResult] = useState<ResultData | null>(null);
+  const [result, setResult] = useState<TransliterationResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState<number>(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const webcamRef = useRef<Webcam | null>(null);
   const [cameraOpen, setCameraOpen] = useState<boolean>(false);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">(
+    "environment"
+  ); // rear default
 
   const onCropComplete = useCallback((_c: Area, croppedAreaPx: Area) => {
     setCroppedAreaPixels(croppedAreaPx);
   }, []);
 
-  // Upload file
   const handleFile = (file: File | undefined) => {
     if (!file) return;
     const url = URL.createObjectURL(file);
     setImageUrl(url);
   };
 
-  // Capture from webcam
   const captureFromWebcam = () => {
     const screenshot = webcamRef.current?.getScreenshot();
     if (screenshot) {
@@ -45,17 +47,19 @@ export default function Home() {
     }
   };
 
-  // Manual text transliteration
   const handleTransliterateText = async () => {
     if (!textInput.trim()) return alert("Enter text first");
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/transliterate-text`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: textInput, target }),
-      });
-      const data: ResultData = await res.json();
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/transliterate-text`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: textInput, target }),
+        }
+      );
+      const data: TransliterationResult = await res.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -64,7 +68,6 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Process image
   const handleProcessImage = async () => {
     if (!imageUrl) return alert("Upload or capture image first");
     setLoading(true);
@@ -93,11 +96,14 @@ export default function Home() {
         fd.append("height", String(height));
       }
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process-image`, {
-        method: "POST",
-        body: fd,
-      });
-      const data: ResultData = await res.json();
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/process-image`,
+        {
+          method: "POST",
+          body: fd,
+        }
+      );
+      const data: TransliterationResult = await res.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -106,14 +112,16 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Speak result
   const handleSpeak = async () => {
     if (!result) return;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/speak`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: result.transliterated_user, target }),
+        body: JSON.stringify({
+          text: result.transliterated_user,
+          target,
+        }),
       });
       if (!res.ok) return alert("TTS error");
       const blob = await res.blob();
@@ -128,19 +136,18 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center min-h-screen p-6 bg-gradient-to-r from-blue-200 to-purple-300">
-      <h1 className="text-3xl font-bold text-white mb-6">
+      <h1 className="text-3xl font-bold text-white mb-6 text-center">
         Bharatiya Transliteration Demo
       </h1>
 
-      {/* Text input box */}
+      {/* Text input */}
       <textarea
         value={textInput}
         onChange={(e) => setTextInput(e.target.value)}
         placeholder="✍️ Type or paste text here (any Indian script)"
-        className="w-full max-w-2xl p-3 rounded border shadow mb-4 bg-white text-black"
+        className="w-full max-w-2xl p-3 rounded border shadow mb-4 bg-gray-100 text-black"
         rows={3}
       />
-
       <div className="flex gap-3 mb-4 flex-wrap">
         <button
           onClick={handleTransliterateText}
@@ -149,12 +156,12 @@ export default function Home() {
           Transliterate Text
         </button>
 
-        <div className="border rounded p-2 bg-gray-200">
+        <div className="border rounded p-2 bg-gray-100">
           <label className="font-semibold mr-2">Target Script:</label>
           <select
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            className="p-1 border rounded bg-white text-black"
+            className="p-1 border rounded bg-white"
           >
             <option value="hindi">Hindi</option>
             <option value="english">English</option>
@@ -188,7 +195,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Camera toggle */}
+      {/* Camera */}
       <div className="mb-4">
         {!cameraOpen ? (
           <button
@@ -214,20 +221,18 @@ export default function Home() {
                 Capture Photo
               </button>
               <button
+                className="px-4 py-2 bg-yellow-600 text-white rounded"
+                onClick={() =>
+                  setFacingMode(facingMode === "user" ? "environment" : "user")
+                }
+              >
+                🔄 Switch Camera
+              </button>
+              <button
                 className="px-4 py-2 bg-red-600 text-white rounded"
                 onClick={() => setCameraOpen(false)}
               >
                 Close Camera
-              </button>
-              <button
-                className="px-4 py-2 bg-yellow-600 text-white rounded"
-                onClick={() =>
-                  setFacingMode((prev) =>
-                    prev === "user" ? "environment" : "user"
-                  )
-                }
-              >
-                🔄 Switch Camera
               </button>
             </div>
           </div>
@@ -267,7 +272,7 @@ export default function Home() {
 
       {/* Results */}
       {result && (
-        <div className="mt-6 bg-white p-4 rounded shadow w-full max-w-2xl text-black">
+        <div className="mt-6 bg-gray-100 p-4 rounded shadow w-full max-w-2xl text-black">
           <h2 className="font-bold mb-2">Result</h2>
           <p>
             <strong>Detected script:</strong> {result.detected_script}
